@@ -1,0 +1,6 @@
+data/
+__pycache__/
+.env
+*.log
+.test-tools/
+test-results/

@@ -1,0 +1,5 @@
+.test-tools/
+test-results/
+data/
+__pycache__/
+**/__pycache__/
