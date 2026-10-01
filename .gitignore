@@ -4,3 +4,16 @@ __pycache__/
 *.log
 .test-tools/
 test-results/
+node_modules/
+mobile/www/
+.tools/
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+mobile/.env*
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/**/build/
+mobile/ios/**/build/
+releases/

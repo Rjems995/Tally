@@ -41,6 +41,7 @@ def db():
     conn = sqlite3.connect(DB_PATH, timeout=15)
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA foreign_keys = ON')
+    conn.execute('PRAGMA secure_delete = ON')
     try:
         with conn:
             yield conn
@@ -230,6 +231,7 @@ class Handler(BaseHTTPRequestHandler):
             if not path.startswith('/api/'):
                 if method!='GET': raise APIError('Method not allowed.',405)
                 files={'/':('index.html','text/html; charset=utf-8'),'/index.html':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/services.js':('services.js','text/javascript; charset=utf-8'),'/styles.css':('styles.css','text/css; charset=utf-8')}
+                files['/delete-account']=('delete-account.html','text/html; charset=utf-8')
                 if path not in files: raise APIError('Not found.',404)
                 filename,mime=files[path];self.send(200,(ROOT/filename).read_bytes(),mime);return
             if method!='GET': self.check_origin()
@@ -284,6 +286,15 @@ class Handler(BaseHTTPRequestHandler):
             if path=='/api/logout' and method=='POST':
                 with db() as conn: conn.execute('DELETE FROM sessions WHERE token_hash=?',(s['token_hash'],))
                 self.send(200,{'ok':True},cookie='tally_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');return
+            if path=='/api/account' and method=='DELETE':
+                self.limit(s['user_id']+path,8)
+                data=self.body();password=data.get('password','')
+                with db() as conn:
+                    user=conn.execute('SELECT password_hash FROM users WHERE id=?',(s['user_id'],)).fetchone()
+                    if not isinstance(password,str) or len(password)>256 or not check_password(password,user['password_hash']):
+                        raise APIError('Your password is incorrect.')
+                    conn.execute('DELETE FROM users WHERE id=?',(s['user_id'],))
+                self.send(200,{'ok':True},cookie='tally_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0'+('; Secure' if SECURE else ''));return
             if path=='/api/change-password' and method=='POST':
                 self.limit(s['user_id']+path,8);data=self.body();require_password(data.get('password'))
                 with db() as conn:

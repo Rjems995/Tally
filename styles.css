@@ -1797,3 +1797,37 @@ summary {
   font-size: 10px;
   color: var(--muted);
 }
+
+/* Native webviews reserve space for status bars, notches, and the home indicator. */
+.native-app .topbar {
+  padding-top: env(safe-area-inset-top, 0px);
+  height: calc(83px + env(safe-area-inset-top, 0px));
+}
+.native-app .sidebar {
+  padding-top: calc(36px + env(safe-area-inset-top, 0px));
+}
+.native-app .modal-backdrop {
+  padding-top: max(25px, env(safe-area-inset-top));
+  padding-bottom: max(25px, env(safe-area-inset-bottom));
+}
+@media (max-width: 600px) {
+  .native-app .topbar {
+    height: calc(65px + env(safe-area-inset-top, 0px));
+  }
+  .native-app .sidebar {
+    height: calc(68px + env(safe-area-inset-bottom, 0px));
+    padding-top: 5px;
+    padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px));
+  }
+  .native-app .main {
+    padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  }
+  .native-app #toast {
+    bottom: calc(85px + env(safe-area-inset-bottom, 0px));
+  }
+  .native-app input,
+  .native-app select,
+  .native-app textarea {
+    font-size: 16px;
+  }
+}

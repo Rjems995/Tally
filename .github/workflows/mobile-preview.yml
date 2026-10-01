@@ -1,0 +1,52 @@
+name: Build mobile previews
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+      - run: npm run mobile:preview
+      - run: npx cap sync android
+        working-directory: mobile
+      - run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+        working-directory: mobile/android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tally-Android-preview
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+  ios-simulator:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: xcodebuild -version
+      - run: npm ci
+      - run: npm run mobile:preview
+      - run: npx cap sync ios
+        working-directory: mobile
+      - run: xcodebuild -project App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+        working-directory: mobile/ios/App
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tally-iOS-simulator-only
+          path: mobile/ios/App/build/Build/Products/Debug-iphonesimulator/App.app
+          retention-days: 14

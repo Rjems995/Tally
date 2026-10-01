@@ -1,0 +1,14 @@
+{
+  "name": "tally-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/camera": "^8.0.0",
+    "@capacitor/filesystem": "^8.0.0",
+    "@capacitor/share": "^8.0.0"
+  }
+}

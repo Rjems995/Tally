@@ -168,8 +168,12 @@ function toast(message) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 4000);
 }
+function appRequest(path, options, binary = false) {
+  if (window.TallyNative?.isNative) return window.TallyNative.request(path, options, binary);
+  return fetch(path, options);
+}
 async function api(path, method = 'GET', data) {
-  const response = await fetch('/api' + path, {
+  const response = await appRequest('/api' + path, {
     method,
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': state.csrf },
     body: data === undefined ? undefined : JSON.stringify(data),
@@ -289,7 +293,7 @@ function render() {
         .map((s) => s[0])
         .slice(0, 2)
         .join(''),
-    )}</div></div></header><div class="content">${state.page === 'dashboard' ? dashboard() : state.page === 'receipts' ? receiptsPage() : state.page === 'analytics' ? analytics() : state.page === 'scan' ? scanPage() : profilePage()}<footer class="page-footer"><span>${icon('shield')} ${state.demo ? 'You’re exploring sample data. Your own receipts stay separate.' : 'Your receipts are private and belong to you.'}</span><span>Made for a little more peace of mind. <span style="color:#78a488">✧</span></span></footer></div></main>`;
+    )}</div></div></header><div class="content">${window.TallyNative?.preview ? '<div class="notice warning" role="status">Preview build ? changes are temporary. Cloud accounts are not connected.</div>' : ''}${state.page === 'dashboard' ? dashboard() : state.page === 'receipts' ? receiptsPage() : state.page === 'analytics' ? analytics() : state.page === 'scan' ? scanPage() : profilePage()}<footer class="page-footer"><span>${icon('shield')} ${state.demo ? 'You’re exploring sample data. Your own receipts stay separate.' : 'Your receipts are private and belong to you.'}</span><span>Made for a little more peace of mind. <span style="color:#78a488">✧</span></span></footer></div></main>`;
   bind();
 }
 function heading(title, subtitle, actions = '') {
@@ -429,7 +433,7 @@ function scanPage() {
   return `${heading('A receipt. A little clarity.', 'Snap, scan, and let the details fall into place.')}<div class="scan-page"><div class="steps"><span><b>1</b> Add your receipt</span><span><b>2</b> Review the details</span><span><b>3</b> Save & relax</span></div>${state.image ? `<div class="panel" style="padding:22px"><div class="image-stage" id="image-stage"><canvas id="receipt-canvas"></canvas></div><div class="image-tools"><button id="rotate-image">${icon('rotate')} Rotate</button><button id="crop-image">${icon('crop')} Crop</button><label>Brightness <input id="brightness" type="range" min="60" max="160" value="${state.brightness}"></label><label>Contrast <input id="contrast" type="range" min="70" max="180" value="${state.contrast}"></label></div><p class="panel-caption" id="crop-hint">Check that the entire receipt is readable before scanning.</p><div class="form-actions"><button id="retake">Choose another</button><button class="primary" id="process-image">${icon('spark')} Scan Receipt</button></div></div>` : `<div class="dropzone" id="dropzone"><div class="scan-icon">${icon('scan')}</div><h2>Let’s make it digital.</h2><p>Drop a receipt image here, or choose one from your device.<br>We’ll find the details. You have the final say.</p><div class="actions"><button class="primary" id="upload-receipt">${icon('upload')} Upload a receipt</button><button id="camera-receipt">${icon('camera')} Take a photo</button></div><p style="font-size:10px">JPG, PNG, or WebP · Up to 10 MB</p></div>`}<input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" hidden><input type="file" id="camera-input" accept="image/*" capture="environment" hidden><div class="notice" style="margin-top:22px">${icon('shield')} OCR runs on your device. Review every detail before saving. Images are checked for payment card information before storage.</div><div style="text-align:center"><button class="text-btn" data-action="add">No receipt? Add an expense manually ${icon('arrow')}</button></div></div>`;
 }
 function profilePage() {
-  return `${heading('Your space. Your preferences.', 'Make Tally feel a little more like you.')}<section class="panel profile-card"><h3>${state.user ? esc(state.user.name) : 'Welcome to your personal workspace'}</h3><p class="subheading">${state.user ? esc(state.user.email) : 'You’re exploring Tally with sample receipts. Create an account to privately save your own.'}</p>${!state.user ? `<div class="form-actions" style="justify-content:flex-start"><button class="primary" data-auth="signup">Create an account</button><button data-auth="login">Log in</button></div>` : ''}<div class="settings-row"><div><strong>Appearance</strong><p>A little easier on the eyes.</p></div><button id="profile-theme">${icon('moon')} Toggle theme</button></div><div class="settings-row"><div><strong>Dashboard currency</strong><p>View one currency at a time. No conversion is applied.</p></div><select id="profile-currency">${['PHP', 'USD', 'EUR', 'GBP', 'JPY', 'SGD'].map((c) => `<option ${c === state.currency ? 'selected' : ''}>${c}</option>`).join('')}</select></div>${state.user ? `<div class="settings-row"><div><strong>Password</strong><p>Keep your account secure.</p></div><button data-auth="change">Change password</button></div><div class="form-actions"><button id="logout">${icon('logout')} Log out</button></div>` : `<div class="settings-row"><div><strong>Sample workspace</strong><p>Demo changes last until you refresh the page.</p></div><span class="demo-pill">DEMO</span></div>`}</section>`;
+  return `${heading('Your space. Your preferences.', 'Make Tally feel a little more like you.')}<section class="panel profile-card"><h3>${state.user ? esc(state.user.name) : 'Welcome to your personal workspace'}</h3><p class="subheading">${state.user ? esc(state.user.email) : 'You’re exploring Tally with sample receipts. Create an account to privately save your own.'}</p>${!state.user ? `<div class="form-actions" style="justify-content:flex-start"><button class="primary" data-auth="signup">Create an account</button><button data-auth="login">Log in</button></div>` : ''}<div class="settings-row"><div><strong>Privacy</strong><p>How Tally uses your receipt data.</p></div><button id="privacy-info">Privacy details</button></div><div class="settings-row"><div><strong>Appearance</strong><p>A little easier on the eyes.</p></div><button id="profile-theme">${icon('moon')} Toggle theme</button></div><div class="settings-row"><div><strong>Dashboard currency</strong><p>View one currency at a time. No conversion is applied.</p></div><select id="profile-currency">${['PHP', 'USD', 'EUR', 'GBP', 'JPY', 'SGD'].map((c) => `<option ${c === state.currency ? 'selected' : ''}>${c}</option>`).join('')}</select></div>${state.user ? `<div class="settings-row"><div><strong>Password</strong><p>Keep your account secure.</p></div><button data-auth="change">Change password</button></div><div class="form-actions"><button class="danger" id="delete-account">Delete account</button><button id="logout">${icon('logout')} Log out</button></div>` : `<div class="settings-row"><div><strong>Sample workspace</strong><p>Demo changes last until you refresh the page.</p></div><span class="demo-pill">DEMO</span></div>`}</section>`;
 }
 function bind() {
   document
@@ -521,8 +525,16 @@ function bind() {
       toast(e.message);
     }
   });
-  on('upload-receipt', 'onclick', () => document.querySelector('#file-input').click());
-  on('camera-receipt', 'onclick', () => document.querySelector('#camera-input').click());
+  on('upload-receipt', 'onclick', () => {
+    if (window.TallyNative?.isNative) return window.TallyNative.takePhoto(true);
+    document.querySelector('#file-input').click();
+  });
+  on('camera-receipt', 'onclick', () => {
+    if (window.TallyNative?.isNative) return window.TallyNative.takePhoto();
+    document.querySelector('#camera-input').click();
+  });
+  on('delete-account', 'onclick', deleteAccountDialog);
+  on('privacy-info', 'onclick', showPrivacyInfo);
   ['file-input', 'camera-input'].forEach((id) =>
     on(id, 'onchange', (e) => loadImage(e.target.files[0])),
   );

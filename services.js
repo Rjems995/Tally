@@ -299,8 +299,14 @@ async function processImage() {
     .forEach((e) => (e.disabled = true));
   let worker;
   try {
-    await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
+    const native = window.TallyNative?.isNative;
+    await loadScript(
+      native
+        ? 'vendor/tesseract.min.js'
+        : 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js',
+    );
     worker = await Tesseract.createWorker('eng', 1, {
+      ...(native ? { workerPath: 'vendor/worker.min.js', corePath: 'vendor/tesseract-core' } : {}),
       logger: (m) => {
         const el = document.querySelector('#scan-progress');
         if (el)
@@ -404,7 +410,10 @@ function authDialog(mode = 'login') {
       state.csrf = result.csrf;
       state.demo = false;
       state.receipts = (await api('/receipts')).receipts;
-      state.page = 'dashboard';
+      state.page =
+        new URLSearchParams(location.search).get('action') === 'delete-account'
+          ? 'profile'
+          : 'dashboard';
       closeModal();
       render();
       toast(signup ? 'Your workspace is ready. Welcome to Tally.' : 'Welcome back.');
@@ -457,6 +466,12 @@ function exportDialog(single = null) {
       ]);
     try {
       if (f.get('format') === 'PDF') {
+        if (window.TallyNative?.isNative) {
+          await window.TallyNative.sharePdf(rs);
+          closeModal();
+          toast('Your PDF is ready to save or share.');
+          return;
+        }
         showModal(
           'Expense report',
           `<p>${from || 'All dates'} — ${to || 'All dates'} · ${rs.length} receipts</p>${receiptTable(rs)}<div class="form-actions"><button class="primary" id="print-report">Save as PDF / Print</button></div>`,
@@ -465,6 +480,12 @@ function exportDialog(single = null) {
         return;
       }
       if (f.get('format') === 'Excel / XLSX') {
+        if (window.TallyNative?.isNative) {
+          await window.TallyNative.shareXlsx(rs);
+          closeModal();
+          toast('Your spreadsheet is ready to save or share.');
+          return;
+        }
         if (state.demo) {
           await loadScript('https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js');
           const book = XLSX.utils.book_new();
@@ -473,15 +494,26 @@ function exportDialog(single = null) {
             XLSX.utils.aoa_to_sheet([headers, ...rows]),
             'Expenses',
           );
-          XLSX.writeFile(book, 'tally-expenses.xlsx');
+          if (window.TallyNative?.isNative) {
+            await download(
+              new Blob([XLSX.write(book, { bookType: 'xlsx', type: 'array' })], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              }),
+              'tally-expenses.xlsx',
+            );
+          } else XLSX.writeFile(book, 'tally-expenses.xlsx');
         } else {
-          const response = await fetch('/api/export', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': state.csrf },
-            body: JSON.stringify({ ids: rs.map((r) => r.id) }),
-          });
+          const response = await appRequest(
+            '/api/export',
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': state.csrf },
+              body: JSON.stringify({ ids: rs.map((r) => r.id) }),
+            },
+            true,
+          );
           if (!response.ok) throw Error('Export failed. Please try again.');
-          download(await response.blob(), 'tally-expenses.xlsx');
+          await download(await response.blob(), 'tally-expenses.xlsx');
         }
       } else {
         const cell = (v) => {
@@ -489,7 +521,7 @@ function exportDialog(single = null) {
           if (/^[=+@\-\t\r]/.test(s)) s = "'" + s;
           return '"' + s.replaceAll('"', '""') + '"';
         };
-        download(
+        await download(
           new Blob(
             ['\uFEFF' + [headers, ...rows].map((row) => row.map(cell).join(',')).join('\r\n')],
             { type: 'text/csv;charset=utf-8' },
@@ -504,7 +536,8 @@ function exportDialog(single = null) {
     }
   };
 }
-function download(blob, name) {
+async function download(blob, name) {
+  if (window.TallyNative?.isNative) return window.TallyNative.shareFile(blob, name);
   const url = URL.createObjectURL(blob),
     a = document.createElement('a');
   a.href = url;
@@ -528,6 +561,10 @@ async function init() {
         render();
       }
     } catch {}
+  }
+  if (new URLSearchParams(location.search).get('action') === 'delete-account') {
+    navigate('profile');
+    if (!state.user) authDialog('login');
   }
   const token = new URLSearchParams(location.search).get('reset');
   if (token) {
@@ -553,4 +590,47 @@ async function init() {
     };
   }
 }
+function showPrivacyInfo() {
+  showModal(
+    'Your data in Tally',
+    '<p>Camera and photo access are used only when you choose a receipt. OCR runs on your device. Language models and fonts may be downloaded from their providers.</p><p>When you save to an account, receipt details and eligible images are sent to the configured Tally server. We do not include advertising or analytics SDKs.</p><p>Exports are shared only when you choose a destination. Temporary native export files are removed at the next launch.</p><p>You can delete individual receipts or your whole account from Profile. Sample workspace changes are temporary and disappear when the app restarts.</p><button data-close class="primary">Close</button>',
+    true,
+  );
+}
+function deleteAccountDialog() {
+  showModal(
+    'Delete your account?',
+    `<p>This permanently deletes your account, saved receipts, images, and category corrections from the active database. It cannot be undone.</p><form id="delete-account-form">${field('password', 'Confirm your password', '', 'password', 'required autocomplete="current-password"')}<p id="delete-account-error" class="error-text" role="alert"></p><div class="form-actions"><button type="button" data-close>Keep account</button><button type="submit" class="danger">Delete account and data</button></div></form>`,
+    true,
+  );
+  document.querySelector('#delete-account-form').onsubmit = async (event) => {
+    event.preventDefault();
+    const button = event.target.querySelector('[type=submit]');
+    button.disabled = true;
+    try {
+      await api('/account', 'DELETE', { password: new FormData(event.target).get('password') });
+      state.user = null;
+      state.csrf = '';
+      state.receipts = structuredClone(seed);
+      state.demo = true;
+      state.image = null;
+      state.original = null;
+      closeModal();
+      render();
+      toast('Your account and saved data have been deleted.');
+    } catch (error) {
+      document.querySelector('#delete-account-error').textContent = error.message;
+      button.disabled = false;
+    }
+  };
+}
+window.addEventListener('tally:photo', (event) => {
+  navigate('scan');
+  loadImage(event.detail);
+});
+window.addEventListener('tally:error', (event) => toast(event.detail));
+window.addEventListener('tally:back', () => {
+  if (document.querySelector('.modal')) closeModal();
+  else if (state.page !== 'dashboard') navigate('dashboard');
+});
 init();

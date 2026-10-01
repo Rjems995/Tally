@@ -1,0 +1,14 @@
+{
+  "appId": "com.rjems995.tally",
+  "appName": "Tally",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "never"
+  }
+}

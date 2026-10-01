@@ -3,3 +3,8 @@ test-results/
 data/
 __pycache__/
 **/__pycache__/
+node_modules/
+.tools/
+mobile/www/
+mobile/android/
+mobile/ios/

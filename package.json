@@ -1,0 +1,40 @@
+{
+  "name": "tally-receipt-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tally receipt scanner — web, Android, and iOS",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "mobile:preview": "node scripts/build-mobile.mjs --preview",
+    "mobile:build": "node scripts/build-mobile.mjs",
+    "mobile:sync": "cd mobile && cap sync",
+    "mobile:android": "cd mobile && cap open android",
+    "mobile:ios": "cd mobile && cap open ios",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/camera": "^8.0.0",
+    "@capacitor/filesystem": "^8.0.0",
+    "@capacitor/share": "^8.0.0",
+    "jspdf": "^4.0.0",
+    "fflate": "^0.8.2",
+    "tesseract.js": "5.1.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
+    "esbuild": "^0.28.1",
+    "prettier": "3.7.4"
+  },
+  "overrides": {
+    "xcode": {
+      "uuid": "^11.1.1"
+    }
+  }
+}

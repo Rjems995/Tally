@@ -1,0 +1,53 @@
+name: Build signed Google Play bundle
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    environment: mobile-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+      - name: Build with the production server
+        run: npm run mobile:build
+        env:
+          TALLY_API_ORIGIN: ${{ vars.TALLY_API_ORIGIN }}
+      - run: npx cap sync android
+        working-directory: mobile
+      - name: Decode upload signing key
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.TALLY_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$KEYSTORE_BASE64" || { echo 'Configure the upload-key secrets first.'; exit 1; }
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/tally-upload.jks"
+      - name: Build signed AAB
+        working-directory: mobile/android
+        run: chmod +x gradlew && ./gradlew bundleRelease --no-daemon
+        env:
+          TALLY_KEYSTORE_PATH: ${{ runner.temp }}/tally-upload.jks
+          TALLY_KEYSTORE_PASSWORD: ${{ secrets.TALLY_KEYSTORE_PASSWORD }}
+          TALLY_KEY_ALIAS: ${{ secrets.TALLY_KEY_ALIAS }}
+          TALLY_KEY_PASSWORD: ${{ secrets.TALLY_KEY_PASSWORD }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tally-Google-Play-AAB
+          path: mobile/android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 7
+      - name: Remove temporary upload key
+        if: always()
+        shell: bash
+        run: rm -f -- "$RUNNER_TEMP/tally-upload.jks"

@@ -117,4 +117,18 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.a.request('/reset-password','POST',data)[0],400)
         self.assertEqual(self.a.request('/login','POST',{'email':'a@example.com','password':data['password']})[0],200)
 
+    def test_delete_account_requires_password_and_cascades(self):
+        self.a.request('/receipts','POST',self.receipt())
+        self.b.request('/receipts','POST',self.receipt(merchant='Keep this'))
+        self.assertEqual(self.a.request('/account','DELETE',{'password':'wrong'})[0],400)
+        self.assertEqual(self.a.request('/account','DELETE',{'password':'A-secure-password-2026'},csrf=False)[0],403)
+        self.assertEqual(self.a.request('/account','DELETE',{'password':'A-secure-password-2026'})[0],200)
+        self.assertEqual(self.a.request('/receipts')[0],401)
+        self.assertEqual(len(self.b.request('/receipts')[1]['receipts']),1)
+        with server.db() as conn:
+            self.assertEqual(conn.execute('SELECT count(*) FROM users').fetchone()[0],1)
+            self.assertEqual(conn.execute('SELECT count(*) FROM receipts').fetchone()[0],1)
+            self.assertEqual(conn.execute('SELECT count(*) FROM receipt_items').fetchone()[0],1)
+            self.assertEqual(conn.execute('SELECT count(*) FROM category_corrections').fetchone()[0],1)
+
 if __name__=='__main__': unittest.main()

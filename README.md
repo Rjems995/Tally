@@ -2,6 +2,8 @@
 
 A responsive receipt scanner and expense tracker with a private SQLite-backed account workspace and a separate, temporary demo. No build step or Python packages are required to run the app.
 
+Native Android and iOS projects are now available in `mobile/`. See [mobile build and store release instructions](mobile/STORE-RELEASE.md). The Android preview is a temporary demo; store release requires your hosted HTTPS backend and developer/signing accounts.
+
 ## Start
 
 ```powershell
@@ -72,4 +74,4 @@ The tests use temporary databases and cover authentication, cross-account isolat
 
 OCR reference: [Tesseract.js documentation](https://github.com/naptha/tesseract.js).
 
-Verified locally: eight backend tests passed; Chrome desktop/mobile checks passed without JavaScript errors; a generated receipt passed through real Tesseract OCR, editable review, authenticated storage, page reload, and XLSX download. The test scripts use temporary databases for account checks. Screenshots are saved under `test-results/` (excluded from version control).
+Verified locally: nine backend tests passed, including account deletion; Chrome desktop/mobile checks passed without JavaScript errors; a generated receipt passed through real Tesseract OCR, editable review, authenticated storage, page reload, and XLSX download. The bundled mobile UI also passed camera-bridge dispatch, local OCR, review, PDF/XLSX generation, and preview-mode checks using a simulated native bridge. These integration tests do not replace physical Android/iPhone testing. The test scripts use temporary databases for account checks. Screenshots are saved under `test-results/` (excluded from version control).
