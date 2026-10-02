@@ -287,6 +287,10 @@ function parseReceipt(raw, confidence = 0) {
 }
 async function processImage() {
   if (state.processing) return;
+  const canvas = document.querySelector('#receipt-canvas');
+  if (!canvas) return;
+  const original = state.original;
+  const scanUser = state.user;
   state.processing = true;
   const stage = document.querySelector('#image-stage'),
     overlay = document.createElement('div');
@@ -316,16 +320,15 @@ async function processImage() {
               : m.status;
       },
     });
-    const canvas = document.querySelector('#receipt-canvas'),
-      result = await worker.recognize(canvas);
+    const result = await worker.recognize(canvas);
     if (result.data.text.trim().length < 8)
       throw Error('We couldn’t read enough text. Try a brighter, sharper photo.');
     const r = parseReceipt(result.data.text, result.data.confidence);
     let originalCanvas = null,
       originalText = '';
-    if (state.original) {
+    if (original) {
       const originalImage = new Image();
-      originalImage.src = state.original;
+      originalImage.src = original;
       await originalImage.decode();
       originalCanvas = document.createElement('canvas');
       const factor = Math.min(1, 2400 / Math.max(originalImage.width, originalImage.height));
@@ -352,17 +355,19 @@ async function processImage() {
       r.original_image = originalCanvas ? originalCanvas.toDataURL('image/jpeg', 0.86) : null;
     }
     r.card_checked = true;
+    if (!stage.isConnected || state.user !== scanUser || state.original !== original) return;
     if (!state.demo) {
       try {
         const enriched = await api('/classify', 'POST', { receipt: r });
         r.category = enriched.category || r.category;
       } catch {}
     }
-    editReceipt(r, true);
+    if (stage.isConnected && state.user === scanUser && state.original === original)
+      editReceipt(r, true);
   } catch (e) {
     toast(e.message || 'Scanning failed. Please try again.');
   } finally {
-    if (worker) await worker.terminate();
+    if (worker) await worker.terminate().catch(() => {});
     state.processing = false;
     overlay.remove();
     document
@@ -391,7 +396,8 @@ function authDialog(mode = 'login') {
   document.querySelector('#forgot-password')?.addEventListener('click', () => authDialog('forgot'));
   document.querySelector('#auth-form').onsubmit = async (e) => {
     e.preventDefault();
-    const button = e.target.querySelector('button');
+    const form = e.target;
+    const button = form.querySelector('button');
     button.disabled = true;
     try {
       const data = Object.fromEntries(new FormData(e.target)),
@@ -409,6 +415,10 @@ function authDialog(mode = 'login') {
       state.user = result.user;
       state.csrf = result.csrf;
       state.demo = false;
+      state.receipts = [];
+      state.image = null;
+      state.original = null;
+      render();
       state.receipts = (await api('/receipts')).receipts;
       state.page =
         new URLSearchParams(location.search).get('action') === 'delete-account'
@@ -418,7 +428,8 @@ function authDialog(mode = 'login') {
       render();
       toast(signup ? 'Your workspace is ready. Welcome to Tally.' : 'Welcome back.');
     } catch (err) {
-      document.querySelector('#auth-error').textContent = err.message;
+      if (form.isConnected) form.querySelector('#auth-error').textContent = err.message;
+      else toast(err.message);
       button.disabled = false;
     }
   };
@@ -532,7 +543,9 @@ function exportDialog(single = null) {
       closeModal();
       toast('Your export is ready.');
     } catch (err) {
-      document.querySelector('#export-error').textContent = err.message;
+      const error = e.target.querySelector('#export-error');
+      if (e.target.isConnected && error) error.textContent = err.message;
+      else toast(err.message);
     }
   };
 }
@@ -557,10 +570,14 @@ async function init() {
         state.user = session.user;
         state.csrf = session.csrf;
         state.demo = false;
+        state.receipts = [];
+        render();
         state.receipts = (await api('/receipts')).receipts;
         render();
       }
-    } catch {}
+    } catch (error) {
+      if (state.user) toast('Could not load your receipts. Reload to try again.');
+    }
   }
   if (new URLSearchParams(location.search).get('action') === 'delete-account') {
     navigate('profile');
@@ -581,11 +598,19 @@ async function init() {
           token,
           password: new FormData(e.target).get('password'),
         });
+        state.user = null;
+        state.csrf = '';
+        state.demo = true;
+        state.receipts = structuredClone(seed);
+        state.image = null;
+        state.original = null;
+        render();
         closeModal();
         authDialog('login');
         toast('Password updated. Please log in.');
       } catch (err) {
-        document.querySelector('#reset-error').textContent = err.message;
+        if (e.target.isConnected) e.target.querySelector('#reset-error').textContent = err.message;
+        else toast(err.message);
       }
     };
   }
@@ -619,7 +644,9 @@ function deleteAccountDialog() {
       render();
       toast('Your account and saved data have been deleted.');
     } catch (error) {
-      document.querySelector('#delete-account-error').textContent = error.message;
+      if (event.target.isConnected)
+        event.target.querySelector('#delete-account-error').textContent = error.message;
+      else toast(error.message);
       button.disabled = false;
     }
   };

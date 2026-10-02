@@ -104,6 +104,8 @@ def clean_image(value, checked):
 
 def validate_receipt(data):
     if not isinstance(data,dict): raise APIError('Invalid receipt.')
+    if any(data.get(k) is not None and not isinstance(data[k],str) for k in TEXT_FIELDS):
+        raise APIError('Receipt text fields must contain text.')
     r={k:mask_cards(data.get(k) or '')[:4000 if k=='notes' else 300] for k in TEXT_FIELDS}
     r['merchant']=r['merchant'].strip()
     if not r['merchant']: raise APIError('Enter a merchant name.')
@@ -118,7 +120,8 @@ def validate_receipt(data):
     r['items']=[]
     for item in items:
         if not isinstance(item,dict): raise APIError('Invalid receipt item.')
-        name=mask_cards(item.get('name','')).strip()[:200]
+        if not isinstance(item.get('name'),str) or not isinstance(item.get('product_code',''),str): raise APIError('Item names and product codes must contain text.')
+        name=mask_cards(item['name']).strip()[:200]
         if not name: raise APIError('Every item needs a name.')
         qty=amount(item.get('quantity'),True)
         if qty<=0: raise APIError('Item quantity must be greater than zero.')
@@ -303,6 +306,7 @@ class Handler(BaseHTTPRequestHandler):
                     if not isinstance(current,str) or len(current)>256 or not check_password(current,user['password_hash']): raise APIError('Current password is incorrect.')
                     conn.execute('UPDATE users SET password_hash=? WHERE id=?',(password_hash(data['password']),s['user_id']))
                     conn.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(s['user_id'],s['token_hash']))
+                    conn.execute('DELETE FROM reset_tokens WHERE user_id=?',(s['user_id'],))
                 self.send(200,{'message':'Password changed. Other sessions have been logged out.'});return
             if path=='/api/receipts' and method=='GET':
                 with db() as conn: rows=conn.execute('SELECT id,data FROM receipts WHERE user_id=? ORDER BY date DESC,created_at DESC',(s['user_id'],)).fetchall()
@@ -333,7 +337,8 @@ class Handler(BaseHTTPRequestHandler):
                 ids=self.body().get('ids',[])
                 if not isinstance(ids,list) or len(ids)>5000 or any(not isinstance(i,str) for i in ids): raise APIError('Invalid receipt selection.')
                 with db() as conn: rows=conn.execute('SELECT id,data FROM receipts WHERE user_id=?',(s['user_id'],)).fetchall()
-                wanted=set(ids);receipts=[json.loads(r['data']) for r in rows if r['id'] in wanted]
+                available={r['id']:json.loads(r['data']) for r in rows}
+                receipts=[available[rid] for rid in dict.fromkeys(ids) if rid in available]
                 self.send(200,make_xlsx(receipts),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');return
             raise APIError('Not found.',404)
         except APIError as e: self.send(e.status,{'error':e.message})

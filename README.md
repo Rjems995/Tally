@@ -171,6 +171,8 @@ python -m unittest discover -s tests -v
 
 The tests use temporary databases and cover authentication, cross-account isolation, CSRF, validation, deletion, card masking, corrections, and XLSX output. Browser verification uses Playwright when installed and the local Chrome executable.
 
+Run `python tests/regression_check.py` for the dashboard checks plus regressions covering mixed-currency date filters, timezone boundaries, zero-value charts, failed account loading, and navigating away during OCR. This script starts its own temporary server on port 8080; stop any existing server on that port first.
+
 Browser test scripts are `tests/browser_check.py`, `tests/scan_account_check.py`, and `tests/mobile_bundle_check.py`. They require Playwright and Chrome; the scan tests also use Pillow to generate receipt fixtures. Their current Chrome setup is tailored to the development Windows machine. The dashboard test expects the web server on port 8080; the scan/account and mobile-bundle tests start their own test servers. Build the mobile preview assets before running the mobile-bundle test.
 
 ## Cleanup

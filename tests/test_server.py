@@ -99,6 +99,29 @@ class ServerTests(unittest.TestCase):
         code,body,_=self.a.request('/change-password','POST',{'current_password':'wrong','password':'new-password-12345'});self.assertEqual(code,400)
         self.assertEqual(self.a.request('/change-password','POST',{'current_password':'A-secure-password-2026','password':'new-password-12345'})[0],200)
         self.assertEqual(Client(server.PUBLIC_ORIGIN).request('/login','POST',{'email':'a@example.com','password':'new-password-12345'})[0],200)
+    def test_password_change_revokes_reset_links(self):
+        with server.db() as conn:
+            uid=conn.execute('SELECT id FROM users WHERE email=?',('a@example.com',)).fetchone()[0]
+            conn.execute('INSERT INTO reset_tokens VALUES(?,?,?)',(server.digest('old-link'),uid,server.time.time()+60))
+        self.assertEqual(self.a.request('/change-password','POST',{'current_password':'A-secure-password-2026','password':'new-password-12345'})[0],200)
+        self.assertEqual(self.a.request('/reset-password','POST',{'token':'old-link','password':'unwanted-password-123'})[0],400)
+        self.assertEqual(self.a.request('/receipts')[0],200)
+
+    def test_export_preserves_selection_order(self):
+        ids=[self.a.request('/receipts','POST',self.receipt(merchant=name))[1]['receipt']['id'] for name in ['First store','Second store']]
+        _,blob,_=self.a.request('/export','POST',{'ids':[ids[1],ids[0],ids[1]]})
+        with zipfile.ZipFile(io.BytesIO(blob)) as z:
+            sheet=z.read('xl/worksheets/sheet1.xml')
+            self.assertLess(sheet.index(b'Second store'),sheet.index(b'First store'))
+            self.assertEqual(sheet.count(b'Second store'),1)
+
+    def test_rejects_non_text_receipt_fields(self):
+        for value in [123, [], {}, True]:
+            self.assertEqual(self.a.request('/receipts','POST',self.receipt(merchant=value))[0],400)
+        for value in [None, 123, [], {}]:
+            item={'name':value,'quantity':1,'unit_price':100,'total':100}
+            self.assertEqual(self.a.request('/receipts','POST',self.receipt(items=[item]))[0],400)
+
     def test_no_private_files(self):
         for path in ['/server.py','/data/tally.sqlite3','/../server.py']:
             try: urllib.request.urlopen(server.PUBLIC_ORIGIN+path)

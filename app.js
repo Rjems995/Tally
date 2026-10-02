@@ -198,14 +198,14 @@ function navigate(page) {
 function referenceDate() {
   return state.demo ? '2026-09-30' : localDate();
 }
-function periodReceipts(period = state.period) {
+function periodReceipts(period = state.period, currency = state.currency) {
   const ref = referenceDate(),
     d = new Date(ref + 'T12:00:00');
   d.setDate(d.getDate() - 6);
-  const week = d.toISOString().slice(0, 10);
+  const week = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   return state.receipts.filter(
     (r) =>
-      r.currency === state.currency &&
+      (currency === null || r.currency === currency) &&
       (period === 'month'
         ? r.date.slice(0, 7) === ref.slice(0, 7)
         : period === 'week'
@@ -245,7 +245,7 @@ function filteredReceipts() {
   if (state.range !== 'All') {
     const map = { Today: 'today', 'This Week': 'week', 'This Month': 'month' };
     if (map[state.range]) {
-      const ids = new Set(periodReceipts(map[state.range]).map((r) => r.id));
+      const ids = new Set(periodReceipts(map[state.range], null).map((r) => r.id));
       rs = rs.filter((r) => ids.has(r.id));
     } else
       rs = rs.filter(
@@ -324,7 +324,7 @@ function dashboard() {
     )
     .join(
       '',
-    )}</div><button class="date-btn" id="date-filter">${icon('calendar')} ${new Date(referenceDate() + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} ${icon('down')}</button></div></div><div class="stats">${stat('Total spending', money(total, state.currency), 'wallet', `<span class="trend">${icon('up')} ${prev && state.period === 'month' ? Math.abs(delta).toFixed(1) + '% ' + (delta >= 0 ? 'more' : 'less') : 'Your expenses'}</span><span>${prev && state.period === 'month' ? 'vs. last month' : 'in one place'}</span>`)}${stat('Receipts saved', rs.length, 'receipt', `${icon('check')} All your little moments, accounted for`)}${stat('Largest expense', money(largest?.total, state.currency), 'up', `${largest ? esc(largest.merchant) + ' <span>· ' + dateLabel(largest.date).replace(', 2026', '') + '</span>' : 'No expenses in this period'}`)}${stat('Top category', cats[0]?.[0] || '—', 'bag', `<span class="dot" style="background:#daa259"></span> ${cats.length ? Math.round((cats[0][1] / total) * 100) + '% of your total spending' : 'Your categories will appear here'}`, true)}</div><div class="charts">${trendChart(rs)}${categoryChart(rs)}</div><section class="panel receipts-panel"><div class="panel-head"><div><h2 class="panel-title">Recent receipts</h2><p class="panel-caption">A little history of your everyday.</p></div><button class="text-btn" data-page="receipts">View all receipts ${icon('arrow')}</button></div>${receiptTable([...state.receipts].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5))}</section>`;
+    )}</div><button class="date-btn" id="date-filter">${icon('calendar')} ${new Date(referenceDate() + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} ${icon('down')}</button></div></div><div class="stats">${stat('Total spending', money(total, state.currency), 'wallet', `<span class="trend">${icon('up')} ${prev && state.period === 'month' ? Math.abs(delta).toFixed(1) + '% ' + (delta >= 0 ? 'more' : 'less') : 'Your expenses'}</span><span>${prev && state.period === 'month' ? 'vs. last month' : 'in one place'}</span>`)}${stat('Receipts saved', rs.length, 'receipt', `${icon('check')} All your little moments, accounted for`)}${stat('Largest expense', money(largest?.total, state.currency), 'up', `${largest ? esc(largest.merchant) + ' <span>· ' + dateLabel(largest.date).replace(', 2026', '') + '</span>' : 'No expenses in this period'}`)}${stat('Top category', cats[0]?.[0] || '—', 'bag', `<span class="dot" style="background:#daa259"></span> ${cats.length ? Math.round(total ? (cats[0][1] / total) * 100 : 0) + '% of your total spending' : 'Your categories will appear here'}`, true)}</div><div class="charts">${trendChart(rs)}${categoryChart(rs)}</div><section class="panel receipts-panel"><div class="panel-head"><div><h2 class="panel-title">Recent receipts</h2><p class="panel-caption">A little history of your everyday.</p></div><button class="text-btn" data-page="receipts">View all receipts ${icon('arrow')}</button></div>${receiptTable([...state.receipts].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5))}</section>`;
 }
 function stat(title, value, i, foot, cat = false) {
   return `<div class="stat"><div class="stat-top"><span>${title}</span>${icon(i)}</div><div class="stat-value ${cat ? 'category-value' : ''}">${value}</div><div class="stat-bottom">${foot}</div></div>`;
@@ -394,11 +394,11 @@ function categoryChart(rs) {
   const stops = cats
     .map(([, v], i) => {
       const old = start;
-      start += (v / total) * 100;
+      start += total ? (v / total) * 100 : 0;
       return `${colors[i]} ${old}% ${start}%`;
     })
     .join(',');
-  return `<section class="panel"><div class="panel-head"><div><h2 class="panel-title">Where it all goes</h2><p class="panel-caption">A breakdown by category.</p></div><button class="ghost icon-btn" data-page="analytics" title="Explore categories">${icon('dots')}</button></div><div class="donut-wrap"><div class="donut" style="background:${total ? 'conic-gradient(' + stops + ')' : 'var(--line)'}" role="img" aria-label="Spending by category"><div class="donut-center"><small>Total expenses</small><strong>${money(total, state.currency, 0)}</strong></div></div><div class="legend">${cats.length ? cats.map(([c, v], i) => `<div class="legend-row"><span class="dot" style="background:${colors[i]}"></span><span>${esc(c)}</span><strong>${Math.round((v / total) * 100)}%</strong></div>`).join('') : '<p class="panel-caption">Your categories will appear here.</p>'}</div></div></section>`;
+  return `<section class="panel"><div class="panel-head"><div><h2 class="panel-title">Where it all goes</h2><p class="panel-caption">A breakdown by category.</p></div><button class="ghost icon-btn" data-page="analytics" title="Explore categories">${icon('dots')}</button></div><div class="donut-wrap"><div class="donut" style="background:${total ? 'conic-gradient(' + stops + ')' : 'var(--line)'}" role="img" aria-label="Spending by category"><div class="donut-center"><small>Total expenses</small><strong>${money(total, state.currency, 0)}</strong></div></div><div class="legend">${cats.length ? cats.map(([c, v], i) => `<div class="legend-row"><span class="dot" style="background:${colors[i]}"></span><span>${esc(c)}</span><strong>${Math.round(total ? (v / total) * 100 : 0)}%</strong></div>`).join('') : '<p class="panel-caption">Your categories will appear here.</p>'}</div></div></section>`;
 }
 function receiptTable(rs) {
   return rs.length
@@ -427,7 +427,7 @@ function analytics() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
   const cats = breakdown(rs);
-  return `${heading('See the bigger picture.', 'Small everyday expenses. Insights that add up.', exportButton())}<div class="section-heading"><h2>This month’s story</h2><select style="width:100px" id="analytics-currency" aria-label="Analytics currency">${['PHP', 'USD', 'EUR', 'GBP', 'JPY', 'SGD'].map((c) => `<option ${c === state.currency ? 'selected' : ''}>${c}</option>`).join('')}</select></div><div class="stats">${stat('This month', money(total, state.currency), 'wallet', 'Your recorded spending')}${stat('Last month', money(prev, state.currency), 'calendar', 'A little context for this month')}${stat('Monthly change', prev ? (((total - prev) / prev) * 100).toFixed(1) + '%' : '—', 'chart', prev ? 'Compared with last month' : 'Add previous receipts to compare')}${stat('Average expense', money(rs.length ? total / rs.length : 0, state.currency), 'receipt', `${rs.length} receipts this month`)}</div><div class="charts">${trendChart(rs)}${categoryChart(rs)}</div><div class="charts"><section class="panel"><div class="panel-head"><div><h2 class="panel-title">Your everyday favorites</h2><p class="panel-caption">Top merchants by spending.</p></div></div><div class="top-merchants">${top.length ? top.map(([m, v], i) => `<div class="merchant-rank"><div class="merchant-mark">${i + 1}</div><div><strong>${esc(m)}</strong><div class="bar"><i style="width:${(v / top[0][1]) * 100}%"></i></div></div><span>${money(v, state.currency)}</span></div>`).join('') : '<p class="empty">Your merchants will appear here.</p>'}</div></section><section class="panel" style="padding:25px"><div class="eyebrow">${icon('spark')} A LITTLE PERSPECTIVE</div><h2 style="font:700 21px Manrope;line-height:1.5">${cats.length ? `${esc(cats[0][0])} is your most-used category.` : 'Your spending has a story.'}</h2><p class="subheading" style="line-height:1.9">${cats.length ? `It makes up ${Math.round((cats[0][1] / total) * 100)}% of your recorded spending this month. Knowing where your money goes is a good place to start.` : 'As you save receipts, you’ll see patterns and useful insights here.'}</p><button class="soft" data-page="receipts" style="margin-top:25px">Explore your receipts ${icon('arrow')}</button></section></div>`;
+  return `${heading('See the bigger picture.', 'Small everyday expenses. Insights that add up.', exportButton())}<div class="section-heading"><h2>This month’s story</h2><select style="width:100px" id="analytics-currency" aria-label="Analytics currency">${['PHP', 'USD', 'EUR', 'GBP', 'JPY', 'SGD'].map((c) => `<option ${c === state.currency ? 'selected' : ''}>${c}</option>`).join('')}</select></div><div class="stats">${stat('This month', money(total, state.currency), 'wallet', 'Your recorded spending')}${stat('Last month', money(prev, state.currency), 'calendar', 'A little context for this month')}${stat('Monthly change', prev ? (((total - prev) / prev) * 100).toFixed(1) + '%' : '—', 'chart', prev ? 'Compared with last month' : 'Add previous receipts to compare')}${stat('Average expense', money(rs.length ? total / rs.length : 0, state.currency), 'receipt', `${rs.length} receipts this month`)}</div><div class="charts">${trendChart(rs)}${categoryChart(rs)}</div><div class="charts"><section class="panel"><div class="panel-head"><div><h2 class="panel-title">Your everyday favorites</h2><p class="panel-caption">Top merchants by spending.</p></div></div><div class="top-merchants">${top.length ? top.map(([m, v], i) => `<div class="merchant-rank"><div class="merchant-mark">${i + 1}</div><div><strong>${esc(m)}</strong><div class="bar"><i style="width:${top[0][1] ? (v / top[0][1]) * 100 : 0}%"></i></div></div><span>${money(v, state.currency)}</span></div>`).join('') : '<p class="empty">Your merchants will appear here.</p>'}</div></section><section class="panel" style="padding:25px"><div class="eyebrow">${icon('spark')} A LITTLE PERSPECTIVE</div><h2 style="font:700 21px Manrope;line-height:1.5">${cats.length ? `${esc(cats[0][0])} is your most-used category.` : 'Your spending has a story.'}</h2><p class="subheading" style="line-height:1.9">${cats.length ? `It makes up ${Math.round(total ? (cats[0][1] / total) * 100 : 0)}% of your recorded spending this month. Knowing where your money goes is a good place to start.` : 'As you save receipts, you’ll see patterns and useful insights here.'}</p><button class="soft" data-page="receipts" style="margin-top:25px">Explore your receipts ${icon('arrow')}</button></section></div>`;
 }
 function scanPage() {
   return `${heading('A receipt. A little clarity.', 'Snap, scan, and let the details fall into place.')}<div class="scan-page"><div class="steps"><span><b>1</b> Add your receipt</span><span><b>2</b> Review the details</span><span><b>3</b> Save & relax</span></div>${state.image ? `<div class="panel" style="padding:22px"><div class="image-stage" id="image-stage"><canvas id="receipt-canvas"></canvas></div><div class="image-tools"><button id="rotate-image">${icon('rotate')} Rotate</button><button id="crop-image">${icon('crop')} Crop</button><label>Brightness <input id="brightness" type="range" min="60" max="160" value="${state.brightness}"></label><label>Contrast <input id="contrast" type="range" min="70" max="180" value="${state.contrast}"></label></div><p class="panel-caption" id="crop-hint">Check that the entire receipt is readable before scanning.</p><div class="form-actions"><button id="retake">Choose another</button><button class="primary" id="process-image">${icon('spark')} Scan Receipt</button></div></div>` : `<div class="dropzone" id="dropzone"><div class="scan-icon">${icon('scan')}</div><h2>Let’s make it digital.</h2><p>Drop a receipt image here, or choose one from your device.<br>We’ll find the details. You have the final say.</p><div class="actions"><button class="primary" id="upload-receipt">${icon('upload')} Upload a receipt</button><button id="camera-receipt">${icon('camera')} Take a photo</button></div><p style="font-size:10px">JPG, PNG, or WebP · Up to 10 MB</p></div>`}<input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" hidden><input type="file" id="camera-input" accept="image/*" capture="environment" hidden><div class="notice" style="margin-top:22px">${icon('shield')} OCR runs on your device. Review every detail before saving. Images are checked for payment card information before storage.</div><div style="text-align:center"><button class="text-btn" data-action="add">No receipt? Add an expense manually ${icon('arrow')}</button></div></div>`;
@@ -517,6 +517,9 @@ function bind() {
     try {
       await api('/logout', 'POST', {});
       state.user = null;
+      state.csrf = '';
+      state.image = null;
+      state.original = null;
       state.demo = true;
       state.receipts = structuredClone(seed);
       render();
@@ -661,6 +664,13 @@ function editReceipt(receipt = null, scanned = false) {
     receipt?.id ? 'Edit receipt' : scanned ? 'Review your receipt' : 'Add an expense',
     `${scanned ? '<div class="notice warning">OCR can miss a detail. Please review the highlighted fields and totals before saving.</div>' : ''}${scanned && r.image ? `<div class="image-stage" style="min-height:180px;max-height:240px;margin-bottom:20px"><img src="${r.image}" alt="Receipt image to review" style="max-height:220px"></div>` : ''}${state.demo ? '<div class="notice">Sample workspace — changes are temporary. Create an account in Profile to save privately.</div>' : ''}<form id="receipt-form"><div class="form-grid">${field('merchant', 'Merchant', r.merchant || '', 'text', 'required maxlength="150"' + uncertain('merchant'))}${field('date', 'Date', r.date, 'date', 'required' + uncertain('date'))}${selectField('category', 'Category', categories, r.category)}${field('receipt_number', 'Receipt number', r.receipt_number || '', 'text', uncertain('receipt_number'))}${field('total', 'Total amount', r.total ?? '', 'number', 'required min="0" max="100000000" step="0.01"' + uncertain('total'))}${selectField('currency', 'Currency', ['PHP', 'USD', 'EUR', 'GBP', 'JPY', 'SGD', 'AUD', 'CAD'], r.currency)}${selectField('payment_method', 'Payment method', payments, r.payment_method)}${field('time', 'Time', r.time || '', 'time')}</div><h3 class="details-heading">Purchased items <button type="button" class="text-btn" id="add-item">${icon('plus')} Add item</button></h3><div class="table-wrap"><table class="item-table"><thead><tr><th>Item / SKU</th><th>Qty</th><th>Unit price</th><th>Discount</th><th>Total</th><th></th></tr></thead><tbody id="items-body"></tbody></table></div><details ${scanned ? 'open' : ''}><summary>Payment breakdown & merchant details</summary><div class="form-grid">${field('subtotal', 'Subtotal', r.subtotal ?? '', 'number', 'min="0" step="0.01"')}${field('tax', 'VAT / Tax', r.tax ?? '', 'number', 'min="0" step="0.01"')}${field('discount', 'Discount', r.discount ?? '', 'number', 'min="0" step="0.01"')}${field('service_charge', 'Service charge', r.service_charge ?? '', 'number', 'min="0" step="0.01"')}${field('other_charges', 'Other charges', r.other_charges ?? '', 'number', 'min="0" step="0.01"')}${field('amount_paid', 'Amount paid', r.amount_paid ?? '', 'number', 'min="0" step="0.01"')}${field('change', 'Change', r.change ?? '', 'number', 'min="0" step="0.01"')}${field('branch', 'Branch', r.branch || '')}${field('address', 'Store address', r.address || '')}${field('phone', 'Phone', r.phone || '')}${field('email', 'Merchant email', r.email || '', 'email')}${field('website', 'Website', r.website || '')}${field('invoice_number', 'Invoice / SI / OR number', r.invoice_number || '')}${field('transaction_id', 'Transaction ID', r.transaction_id || '')}${field('reference_number', 'Reference number', r.reference_number || '')}${field('order_number', 'Order number', r.order_number || '')}${field('terminal', 'POS / Terminal', r.terminal || '')}${field('cashier', 'Cashier', r.cashier || '')}${field('tin', 'TIN', r.tin || '')}${field('vatable_sales', 'VATable sales', r.vatable_sales ?? '', 'number', 'min="0" step="0.01"')}${field('vat_exempt', 'VAT-exempt sales', r.vat_exempt ?? '', 'number', 'min="0" step="0.01"')}${field('zero_rated', 'Zero-rated sales', r.zero_rated ?? '', 'number', 'min="0" step="0.01"')}</div></details><label class="field full" style="display:block;margin-top:18px">Notes<textarea name="notes" rows="2" maxlength="4000">${esc(r.notes || '')}</textarea></label>${scanned && r.image ? '<label class="field" style="display:flex;gap:9px;align-items:center;margin-top:18px"><input type="checkbox" required style="width:auto;margin:0"> I checked the image: no full payment card number is visible.</label>' : ''}<p id="form-error" class="error-text" role="alert"></p><div id="math-warning"></div><div class="form-actions"><button type="button" data-close>Cancel</button>${scanned ? '<button type="button" id="rescan">Rescan</button>' : ''}<button type="submit" class="primary">${icon('check')} ${receipt?.id ? 'Save changes' : 'Save Receipt'}</button></div></form>`,
   );
+  const receiptForm = document.querySelector('#receipt-form');
+  const clearMathWarning = () => {
+    receiptForm.querySelector('#math-warning').innerHTML = '';
+  };
+  receiptForm.addEventListener('input', (event) => {
+    if (event.target.id !== 'ack-math') clearMathWarning();
+  });
   let items = r.items || [];
   function drawItems() {
     document.querySelector('#items-body').innerHTML = items
@@ -674,6 +684,7 @@ function editReceipt(receipt = null, scanned = false) {
         (b.onclick = () => {
           readItems();
           items.splice(Number(b.dataset.remove), 1);
+          clearMathWarning();
           drawItems();
         }),
     );
@@ -692,6 +703,7 @@ function editReceipt(receipt = null, scanned = false) {
   document.querySelector('#add-item').onclick = () => {
     readItems();
     items.push({ name: '', quantity: 1, unit_price: 0, total: 0 });
+    clearMathWarning();
     drawItems();
   };
   document.querySelector('#rescan')?.addEventListener('click', () => {
@@ -723,6 +735,11 @@ function editReceipt(receipt = null, scanned = false) {
       'zero_rated',
     ])
       data[k] = data[k] === '' ? null : Number(data[k]);
+    data.merchant = data.merchant.trim();
+    if (!data.merchant || items.some((item) => !item.name.trim())) {
+      form.querySelector('#form-error').textContent = 'Enter a merchant and a name for every item.';
+      return;
+    }
     data.items = items;
     data.image = r.image || null;
     data.card_checked = r.card_checked || false;
@@ -730,7 +747,7 @@ function editReceipt(receipt = null, scanned = false) {
     const issues = validateMath(data);
     const warning = document.querySelector('#math-warning');
     if (issues.length && !document.querySelector('#ack-math')?.checked) {
-      warning.innerHTML = `<div class="notice warning">${issues.map(esc).join('<br>')}<label style="display:flex;gap:8px;margin-top:10px"><input id="ack-math" type="checkbox" style="width:auto" required> I checked these values against the receipt.</label></div>`;
+      warning.innerHTML = `<div class="notice warning">${issues.map(esc).join('<br>')}<label style="display:flex;gap:8px;margin-top:10px"><input id="ack-math" type="checkbox" style="width:auto"> I checked these values against the receipt.</label></div>`;
       return;
     }
     const save = form.querySelector('[type=submit]');
@@ -761,7 +778,8 @@ function editReceipt(receipt = null, scanned = false) {
           : 'Receipt saved. A little more organized.',
       );
     } catch (err) {
-      document.querySelector('#form-error').textContent = err.message;
+      if (form.isConnected) form.querySelector('#form-error').textContent = err.message;
+      else toast(err.message);
       save.disabled = false;
     }
   };
