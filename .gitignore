@@ -17,3 +17,4 @@ mobile/android/local.properties
 mobile/android/**/build/
 mobile/ios/**/build/
 releases/
+mobile/android/.kotlin/

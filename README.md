@@ -173,6 +173,17 @@ The tests use temporary databases and cover authentication, cross-account isolat
 
 Browser test scripts are `tests/browser_check.py`, `tests/scan_account_check.py`, and `tests/mobile_bundle_check.py`. They require Playwright and Chrome; the scan tests also use Pillow to generate receipt fixtures. Their current Chrome setup is tailored to the development Windows machine. The dashboard test expects the web server on port 8080; the scan/account and mobile-bundle tests start their own test servers. Build the mobile preview assets before running the mobile-bundle test.
 
+## Cleanup
+
+On Windows, preview or remove generated build output, caches, test screenshots, installer archives, and logs:
+
+```powershell
+./scripts/clean.ps1 -DryRun
+./scripts/clean.ps1
+```
+
+The script keeps source files, installed tools and dependencies, saved databases, signing keys, and APKs in `releases/`. Close active builds before cleaning; locked files are reported and left alone. The next native build may need to download Gradle dependencies again.
+
 ## Code formatting
 
 The project configures the Prettier VS Code extension for JavaScript, HTML, CSS, JSON, and Markdown, with format on save enabled. After `npm ci`:
