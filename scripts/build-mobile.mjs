@@ -34,6 +34,9 @@ if (!preview || origin) {
 await mkdir(out, { recursive: true });
 for (const name of ['app.js', 'services.js', 'styles.css'])
   await cp(resolve(root, name), resolve(out, name));
+await mkdir(resolve(out, 'assets'), { recursive: true });
+for (const name of ['tally-mark.png', 'tally-wordmark.png', 'favicon.png'])
+  await cp(resolve(root, 'assets', name), resolve(out, 'assets', name));
 let html = await readFile(resolve(root, 'index.html'), 'utf8');
 html = html.replace(
   'width=device-width,initial-scale=1',

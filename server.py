@@ -234,6 +234,8 @@ class Handler(BaseHTTPRequestHandler):
             if not path.startswith('/api/'):
                 if method!='GET': raise APIError('Method not allowed.',405)
                 files={'/':('index.html','text/html; charset=utf-8'),'/index.html':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/services.js':('services.js','text/javascript; charset=utf-8'),'/styles.css':('styles.css','text/css; charset=utf-8')}
+                for name in ['tally-mark.png','tally-wordmark.png','favicon.png']:
+                    files['/assets/'+name]=('assets/'+name,'image/png')
                 files['/delete-account']=('delete-account.html','text/html; charset=utf-8')
                 if path not in files: raise APIError('Not found.',404)
                 filename,mime=files[path];self.send(200,(ROOT/filename).read_bytes(),mime);return

@@ -263,7 +263,7 @@ function filteredReceipts() {
   );
 }
 function brand() {
-  return `<div class="brand"><span class="brandmark">${icon('receipt')}</span><span>tally<span style="color:var(--green)">.</span></span><small>AI</small></div>`;
+  return `<div class="brand" aria-label="Tally"><img class="brand-logo" src="assets/tally-wordmark.png" alt="Tally ? Script Analysis & Data"><img class="brand-icon" src="assets/tally-mark.png" alt="Tally"></div>`;
 }
 function render() {
   const name = state.user?.name || 'Alex Morgan';

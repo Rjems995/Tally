@@ -1831,3 +1831,32 @@ summary {
     font-size: 16px;
   }
 }
+
+/* Supplied Tally artwork retains its original cream background. */
+.brand-logo {
+  display: block;
+  width: 100%;
+  max-width: 190px;
+  height: auto;
+  border-radius: 8px;
+}
+.brand-icon {
+  display: none;
+}
+@media (min-width: 601px) and (max-width: 850px) {
+  .brand-logo {
+    display: none;
+  }
+  .brand-icon {
+    display: block;
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+    border-radius: 8px;
+  }
+}
+@media (max-width: 600px) {
+  .mobile-brand .brand-logo {
+    width: 132px;
+  }
+}
